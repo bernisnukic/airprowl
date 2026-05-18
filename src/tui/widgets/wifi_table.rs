@@ -3,11 +3,13 @@ use ratatui::widgets::Paragraph;
 
 use crate::signal::{self, wifi_ap_distance, wifi_client_distance, distance_info, trend_arrow, format_age, signal_bar};
 use crate::store::{WifiDevice, WifiKind};
+use crate::util::fixed_width;
 
 pub struct WifiListEntry {
     pub device: WifiDevice,
     pub stale: bool,
     pub custom_name: Option<String>,
+    pub vendor: Option<String>,
 }
 
 pub fn render_wifi_header(f: &mut Frame, area: Rect) {
@@ -44,15 +46,18 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
         Style::default()
     };
 
-    let display_name = if is_ap {
+    let vendor_label = entry.vendor.as_deref().map(|v| format!("({})", v));
+    let display_name: &str = if is_ap {
         d.ssid.as_deref().unwrap_or("(hidden)")
     } else {
-        &d.mac
+        vendor_label.as_deref().unwrap_or(&d.mac)
     };
+    let name_is_vendor = !is_ap && vendor_label.is_some();
+
+    let kind_tag = if is_ap { "AP " } else { "CL " };
 
     if entry.stale {
         let dim = Style::default().fg(Color::DarkGray);
-        let kind_tag = if is_ap { "AP " } else { "📱 " };
         let sig = if is_ap {
             format!("{}%", d.signal_pct.unwrap_or(0.0) as i32)
         } else {
@@ -60,8 +65,8 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
         };
         let name = entry.custom_name.as_deref().unwrap_or(display_name);
         let line = format!(
-            "{}? {}{:<24}  {:<18}  {:>7}  {}  {:>7}  {:>5}",
-            cursor, kind_tag, truncate(name, 24), &d.mac, sig, "░".repeat(20), dist.text, age,
+            "{}? {}{}  {:<18}  {:>7}  {}  {:>7}  {:>5}",
+            cursor, kind_tag, fixed_width(name, 24), &d.mac, sig, "░".repeat(20), dist.text, age,
         );
         f.render_widget(Paragraph::new(Span::styled(line, dim)), area);
         return;
@@ -78,27 +83,27 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
     if is_ap {
         spans.push(Span::styled("AP ", Style::default().fg(Color::Blue)));
     } else {
-        spans.push(Span::styled("📱 ", Style::default().fg(Color::Yellow)));
+        spans.push(Span::styled("CL ", Style::default().fg(Color::Yellow)));
     }
 
     // Name columns
     if let Some(ref cn) = entry.custom_name {
         spans.push(Span::styled(
-            format!("{:<14}", truncate(cn, 14)),
+            fixed_width(cn, 14),
             Style::default().fg(Color::Magenta).bold(),
         ));
         spans.push(Span::styled(
-            format!(" {:<9}", truncate(display_name, 9)),
+            format!(" {}", fixed_width(display_name, 9)),
             Style::default().fg(Color::DarkGray),
         ));
     } else {
-        let name_style = if display_name == "(hidden)" {
+        let name_style = if display_name == "(hidden)" || name_is_vendor {
             Style::default().fg(Color::DarkGray)
         } else {
             Style::default().bold()
         };
         spans.push(Span::styled(
-            format!("{:<24}", truncate(display_name, 24)),
+            fixed_width(display_name, 24),
             name_style,
         ));
     }
@@ -149,13 +154,13 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
         let freq = d.freq.as_deref().unwrap_or("");
         let sec = d.security.as_deref().unwrap_or("");
         spans.push(Span::styled(
-            format!("  {:<13}  {:<10}", format!("{} {}", ch, freq), sec),
+            format!("  {}  {}", fixed_width(&format!("{} {}", ch, freq), 13), fixed_width(sec, 10)),
             Style::default().fg(Color::DarkGray),
         ));
     } else {
         let probe = d.probing_for.as_deref().map(|s| format!("→ {}", s)).unwrap_or_default();
         spans.push(Span::styled(
-            format!("  {:<25}", truncate(&probe, 25)),
+            format!("  {}", fixed_width(&probe, 25)),
             Style::default().fg(Color::Yellow),
         ));
     }
@@ -164,12 +169,4 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
     spans.push(Span::styled(format!("  {:>5}", age), Style::default().fg(Color::DarkGray)));
 
     f.render_widget(Paragraph::new(Line::from(spans)), area);
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        s[..max].to_string()
-    }
 }

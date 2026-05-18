@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::config;
-use crate::events::{BtUpdate, WifiApUpdate, WifiClientUpdate};
+use crate::events::{BtUpdate, SubGhzSignal, WifiApUpdate, WifiClientUpdate};
 use crate::signal::ema_update;
 
 #[derive(Debug, Clone)]
@@ -16,12 +16,27 @@ pub struct BtDevice {
     pub sample_count: u32,
     pub first_seen: Instant,
     pub last_seen: Instant,
+    pub is_random: bool,
+    pub icon: Option<String>,
+    pub company_id: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WifiKind {
     Ap,
     Client,
+}
+
+#[derive(Debug, Clone)]
+pub struct SubGhzDevice {
+    pub freq_hz: u32,
+    pub rssi: i16,
+    pub ema: Option<f64>,
+    pub prev_ema: Option<f64>,
+    pub sample_count: u32,
+    pub band: String,
+    pub first_seen: Instant,
+    pub last_seen: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -54,9 +69,21 @@ pub fn apply_bt_update(devices: &mut HashMap<String, BtDevice>, update: BtUpdate
         sample_count: 0,
         first_seen: now,
         last_seen: now,
+        is_random: false,
+        icon: None,
+        company_id: None,
     });
 
     device.last_seen = now;
+    if update.is_random {
+        device.is_random = true;
+    }
+    if update.icon.is_some() {
+        device.icon = update.icon;
+    }
+    if update.company_id.is_some() {
+        device.company_id = update.company_id;
+    }
 
     if let Some(name) = update.name {
         device.name = Some(name);
@@ -126,6 +153,38 @@ pub fn apply_wifi_ap_update(devices: &mut HashMap<String, WifiDevice>, update: W
                 }
                 device.ema = Some(ema_update(prev, sig));
             }
+        }
+    }
+}
+
+pub fn apply_subghz_update(devices: &mut HashMap<String, SubGhzDevice>, sig: SubGhzSignal) {
+    let now = Instant::now();
+    let key = format!("{}", sig.freq_hz);
+    let device = devices.entry(key).or_insert_with(|| SubGhzDevice {
+        freq_hz: sig.freq_hz,
+        rssi: sig.rssi_dbm,
+        ema: None,
+        prev_ema: None,
+        sample_count: 0,
+        band: sig.band.clone(),
+        first_seen: now,
+        last_seen: now,
+    });
+
+    device.last_seen = now;
+    device.rssi = sig.rssi_dbm;
+    device.sample_count += 1;
+
+    match device.ema {
+        None => {
+            device.ema = Some(sig.rssi_dbm as f64);
+            device.prev_ema = None;
+        }
+        Some(prev) => {
+            if device.sample_count % config::SUBGHZ_PREVEMA_EVERY == 0 {
+                device.prev_ema = Some(prev);
+            }
+            device.ema = Some(ema_update(prev, sig.rssi_dbm as f64));
         }
     }
 }

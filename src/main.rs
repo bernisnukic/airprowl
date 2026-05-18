@@ -1,11 +1,16 @@
 mod app;
+mod ble;
+mod cli;
 mod config;
 mod events;
+mod export;
 mod names;
+mod oui;
 mod scanner;
 mod signal;
 mod store;
 mod tui;
+mod util;
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -22,6 +27,11 @@ use crate::events::AppEvent;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Arc::new(Config::from_env());
+
+    if config.cli.is_some() {
+        return cli::run(config).await;
+    }
+
     let (tx, rx) = mpsc::channel::<AppEvent>(1024);
 
     // Spawn Bluetooth scanner
@@ -42,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         if let Err(e) = scanner::wifi::ap_scanner::run_ap_scanner(ap_cfg, ap_tx.clone()).await {
             ap_tx
-                .send(AppEvent::WifiStatus(format!("AP scanner error: {}", e)))
+                .send(AppEvent::WifiStatus(Some(format!("AP scanner error: {}", e))))
                 .await
                 .ok();
         }
@@ -55,10 +65,10 @@ async fn main() -> anyhow::Result<()> {
         match scanner::wifi::monitor::setup_monitor(mon_cfg.clone()).await {
             Err(e) => {
                 mon_tx
-                    .send(AppEvent::WifiStatus(format!(
+                    .send(AppEvent::WifiStatus(Some(format!(
                         "No monitor mode — {}. AP scanning only.",
                         e
-                    )))
+                    ))))
                     .await
                     .ok();
             }
@@ -76,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 {
                     mon_tx
-                        .send(AppEvent::WifiStatus(format!("Sniffer error: {}", e)))
+                        .send(AppEvent::WifiStatus(Some(format!("Sniffer error: {}", e))))
                         .await
                         .ok();
                 }
@@ -84,6 +94,17 @@ async fn main() -> anyhow::Result<()> {
                 cancel.cancel();
                 drop(mon_handle);
             }
+        }
+    });
+
+    // Spawn Sub-GHz scanner (Yard Stick One)
+    let subghz_tx = tx.clone();
+    tokio::spawn(async move {
+        if let Err(e) = scanner::subghz::yardstick::run_subghz_scanner(subghz_tx.clone()).await {
+            subghz_tx
+                .send(AppEvent::SubGhzStatus(format!("Sub-GHz error: {}", e)))
+                .await
+                .ok();
         }
     });
 
@@ -114,11 +135,19 @@ async fn main() -> anyhow::Result<()> {
 
     // Setup terminal and run
     let mut terminal = tui::setup_terminal()?;
-    let mut app = app::App::new(config, rx);
+    let mut app = app::App::new(config, tx.clone(), rx);
 
     let result = app.run(&mut terminal).await;
 
     tui::restore_terminal(&mut terminal)?;
+
+    // Close the channel so scanners exit via `tx.closed()` / `tx.is_closed()`,
+    // letting Drop impls (USB release, monitor-iface teardown) run.
+    drop(tx);
+    drop(app);
+
+    // Grace period for blocking-task cleanup (USB reset, `iw dev … del`).
+    tokio::time::sleep(Duration::from_millis(config::SHUTDOWN_GRACE_MS)).await;
 
     result
 }

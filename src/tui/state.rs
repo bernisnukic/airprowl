@@ -2,6 +2,7 @@
 pub enum Tab {
     Bt,
     Wifi,
+    SubGhz,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -23,6 +24,12 @@ impl std::fmt::Display for SortMode {
     }
 }
 
+pub struct WifiPasswordModal {
+    pub bssid: String,
+    pub ssid: String,
+    pub buffer: String,
+}
+
 pub struct TuiState {
     pub tab: Tab,
     pub sort_mode: SortMode,
@@ -33,7 +40,10 @@ pub struct TuiState {
     pub frozen_order: Option<Vec<String>>,
     pub paused: bool,
     pub should_quit: bool,
+    pub bt_status: Option<String>,
     pub wifi_status: Option<String>,
+    pub subghz_status: Option<String>,
+    pub wifi_password_modal: Option<WifiPasswordModal>,
 }
 
 impl TuiState {
@@ -48,8 +58,15 @@ impl TuiState {
             frozen_order: None,
             paused: false,
             should_quit: false,
+            bt_status: None,
             wifi_status: None,
+            subghz_status: None,
+            wifi_password_modal: None,
         }
+    }
+
+    pub fn input_active(&self) -> bool {
+        self.editing || self.wifi_password_modal.is_some()
     }
 
     pub fn cycle_sort(&mut self) {
@@ -64,13 +81,18 @@ impl TuiState {
                 SortMode::Name => SortMode::Type,
                 _ => SortMode::Signal,
             },
+            Tab::SubGhz => match self.sort_mode {
+                SortMode::Signal => SortMode::Name,
+                _ => SortMode::Signal,
+            },
         };
     }
 
     pub fn toggle_tab(&mut self) {
         self.tab = match self.tab {
             Tab::Bt => Tab::Wifi,
-            Tab::Wifi => Tab::Bt,
+            Tab::Wifi => Tab::SubGhz,
+            Tab::SubGhz => Tab::Bt,
         };
         self.selected_id = None;
         self.scroll_offset = 0;

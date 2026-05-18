@@ -3,11 +3,13 @@ use ratatui::widgets::Paragraph;
 
 use crate::signal::{self, bt_distance, distance_info, trend_arrow, format_age, signal_bar};
 use crate::store::BtDevice;
+use crate::util::fixed_width;
 
 pub struct BtListEntry {
     pub device: BtDevice,
     pub stale: bool,
     pub custom_name: Option<String>,
+    pub vendor: Option<String>,
 }
 
 pub fn render_bt_header(f: &mut Frame, area: Rect) {
@@ -33,28 +35,34 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
         Style::default()
     };
 
+    let fallback_label = entry.vendor.as_deref().map(|v| format!("({})", v));
+
     if entry.stale {
         let dim = Style::default().fg(Color::DarkGray);
         let name = entry.custom_name.as_deref()
             .or(d.name.as_deref())
+            .or(fallback_label.as_deref())
             .unwrap_or(&d.address);
         let line = format!(
-            "{}? {:<29}  {:<18}  {:>4} dBm  {:>4} dBm  {}  {:>7} {:<12}  {:>5}",
+            "{}? {}  {:<18}  {:>4} dBm  {:>4} dBm  {}  {:>7} {}  {:>5}",
             cursor,
-            truncate(name, 29),
+            fixed_width(name, 29),
             &d.address,
             d.rssi.unwrap_or(0),
             ema as i16,
             "░".repeat(20),
             dist.text,
-            format!("({})", dist.tag),
+            fixed_width(&format!("({})", dist.tag), 12),
             age,
         );
         f.render_widget(Paragraph::new(Span::styled(line, dim)), area);
         return;
     }
 
-    let bt_name = d.name.as_deref().unwrap_or(&d.address);
+    let bt_name = d.name.as_deref()
+        .or(fallback_label.as_deref())
+        .unwrap_or(&d.address);
+    let name_is_vendor = d.name.is_none() && fallback_label.is_some();
     let rssi = d.rssi.unwrap_or(0);
     let color = signal::rssi_color(rssi);
     let (bar_fill, bar_color) = signal_bar(ema, -100.0, -40.0, 20);
@@ -64,19 +72,24 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
         Span::styled(format!("{} ", trend.symbol), Style::default().fg(trend.color)),
     ];
 
+    let name_style = if name_is_vendor {
+        Style::default().fg(Color::DarkGray)
+    } else {
+        Style::default().bold()
+    };
     if let Some(ref cn) = entry.custom_name {
         spans.push(Span::styled(
-            format!("{:<16}", truncate(cn, 16)),
+            fixed_width(cn, 16),
             Style::default().fg(Color::Magenta).bold(),
         ));
         spans.push(Span::styled(
-            format!(" {:<12}", truncate(bt_name, 12)),
+            format!(" {}", fixed_width(bt_name, 12)),
             Style::default().fg(Color::DarkGray),
         ));
     } else {
         spans.push(Span::styled(
-            format!("{:<29}", truncate(bt_name, 29)),
-            Style::default().bold(),
+            fixed_width(bt_name, 29),
+            name_style,
         ));
     }
 
@@ -88,17 +101,9 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
         Span::styled("█".repeat(bar_fill), Style::default().fg(bar_color)),
         Span::styled("░".repeat(20 - bar_fill), Style::default().fg(Color::DarkGray)),
         Span::styled(format!("  {:>7} ", dist.text), Style::default().fg(dist.color)),
-        Span::styled(format!("{:<12}", format!("({})", dist.tag)), Style::default().fg(dist.color)),
+        Span::styled(fixed_width(&format!("({})", dist.tag), 12), Style::default().fg(dist.color)),
         Span::styled(format!("  {:>5}", age), Style::default().fg(Color::DarkGray)),
     ]);
 
     f.render_widget(Paragraph::new(Line::from(spans)), area);
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        s[..max].to_string()
-    }
 }

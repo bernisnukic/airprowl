@@ -1,25 +1,39 @@
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::process::Command;
 
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::events::{AppEvent, WifiApUpdate};
 
-/// Scan APs using nmcli (works without root).
-/// Falls back gracefully if nmcli is not available.
+/// Scan APs using nmcli (works without root). Exits cleanly when `tx` closes.
 pub async fn run_ap_scanner(
-    _config: Arc<Config>,
+    config: Arc<Config>,
     tx: mpsc::Sender<AppEvent>,
 ) -> anyhow::Result<()> {
+    let mut last_iface_problem: Option<String> = None;
+
     loop {
-        // Trigger rescan
+        let problem = check_wifi_iface(&config.wifi_iface).await;
+        if problem != last_iface_problem {
+            // Send the new state (Some = warning, None = clear).
+            // None matters: it wipes a stale "DOWN" warning when the iface comes up.
+            if tx.send(AppEvent::WifiStatus(problem.clone())).await.is_err() {
+                return Ok(());
+            }
+            last_iface_problem = problem.clone();
+        }
+
         let _ = Command::new("nmcli")
             .args(["dev", "wifi", "rescan"])
             .output()
             .await;
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-        // List APs
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_millis(500)) => {}
+            _ = tx.closed() => return Ok(()),
+        }
+
         match Command::new("nmcli")
             .args(["-t", "-f", "SSID,BSSID,SIGNAL,FREQ,CHAN,SECURITY,MODE", "dev", "wifi", "list"])
             .output()
@@ -32,21 +46,48 @@ pub async fn run_ap_scanner(
                         continue;
                     }
                     if let Some(update) = parse_nmcli_line(line) {
-                        tx.send(AppEvent::WifiApUpdate(update)).await.ok();
+                        if tx.send(AppEvent::WifiApUpdate(update)).await.is_err() {
+                            return Ok(());
+                        }
                     }
                 }
             }
             Err(e) => {
-                tx.send(AppEvent::WifiStatus(format!("nmcli error: {}", e)))
+                if tx.send(AppEvent::WifiStatus(Some(format!("nmcli error: {}", e))))
                     .await
-                    .ok();
+                    .is_err()
+                {
+                    return Ok(());
+                }
             }
         }
 
-        // Wait before next scan cycle
-        for _ in 0..20 {
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_millis(config::AP_SCAN_INTERVAL_MS)) => {}
+            _ = tx.closed() => return Ok(()),
         }
+    }
+}
+
+/// Returns Some(diagnostic) if the WiFi interface is missing or down,
+/// otherwise None. Reads /sys to avoid shelling out.
+async fn check_wifi_iface(iface: &str) -> Option<String> {
+    let path = format!("/sys/class/net/{}/operstate", iface);
+    match tokio::fs::read_to_string(&path).await {
+        Ok(state) => {
+            if state.trim() == "down" {
+                Some(format!(
+                    "WiFi iface {} is DOWN — run: sudo ip link set {} up",
+                    iface, iface
+                ))
+            } else {
+                None
+            }
+        }
+        Err(_) => Some(format!(
+            "WiFi iface {} not found — set WIFI_IFACE=<name> (see: ip -br link)",
+            iface
+        )),
     }
 }
 

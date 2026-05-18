@@ -21,6 +21,7 @@ pub fn render_header(f: &mut Frame, area: Rect, data: &HeaderData) {
         match data.tab {
             Tab::Bt => Color::Cyan,
             Tab::Wifi => Color::Green,
+            Tab::SubGhz => Color::Rgb(255, 140, 0),
         }
     };
 
@@ -35,6 +36,7 @@ pub fn render_header(f: &mut Frame, area: Rect, data: &HeaderData) {
     let title_color = match data.tab {
         Tab::Bt => Color::Cyan,
         Tab::Wifi => Color::Green,
+        Tab::SubGhz => Color::Rgb(255, 140, 0),
     };
 
     let bt_style = if data.tab == Tab::Bt {
@@ -49,6 +51,12 @@ pub fn render_header(f: &mut Frame, area: Rect, data: &HeaderData) {
         Style::default().fg(Color::DarkGray)
     };
 
+    let subghz_style = if data.tab == Tab::SubGhz {
+        Style::default().fg(Color::Rgb(255, 140, 0)).bold().reversed()
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
     let dim = Style::default().fg(Color::DarkGray);
 
     let mut spans = vec![
@@ -56,6 +64,8 @@ pub fn render_header(f: &mut Frame, area: Rect, data: &HeaderData) {
         Span::styled(" BT ", bt_style),
         Span::styled(" │ ", dim),
         Span::styled(" WiFi ", wifi_style),
+        Span::styled(" │ ", dim),
+        Span::styled(" Sub-GHz ", subghz_style),
         Span::styled("    ", dim),
         Span::styled("⏱  ", dim),
         Span::raw(format!("{:02}:{:02}", mins, secs)),
