@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Build, test & clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # bluer needs libdbus, rusb needs libusb.
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libusb-1.0-0-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Test
+        run: cargo test --verbose
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
