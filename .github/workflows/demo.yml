@@ -1,0 +1,37 @@
+name: Demo GIF
+
+# Manually-triggered: records docs/demo.gif from `airprowl --demo` using vhs in a
+# clean CI environment, and uploads it as an artifact. Run from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  record:
+    name: Record demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libusb-1.0-0-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build airprowl
+        run: cargo build --release
+
+      - name: Put airprowl on PATH (for the tape)
+        run: echo "$GITHUB_WORKSPACE/target/release" >> "$GITHUB_PATH"
+
+      - name: Record demo GIF
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: demo.tape
+
+      - name: Upload GIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-gif
+          path: demo.gif
+          if-no-files-found: error
