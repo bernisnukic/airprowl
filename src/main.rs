@@ -1,3 +1,7 @@
+// A few TUI event-handler arms could become match guards (clippy::collapsible_match),
+// but that changes fall-through semantics — deferred. The rest of clippy is enforced.
+#![allow(clippy::collapsible_match)]
+
 mod app;
 mod ble;
 mod cli;

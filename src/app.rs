@@ -570,7 +570,7 @@ impl App {
                 WifiKind::Ap => d.ema.unwrap_or(0.0),
                 WifiKind::Client => {
                     d.ema
-                        .map(|e| signal::normalize_client_signal(e))
+                        .map(signal::normalize_client_signal)
                         .unwrap_or(0.0)
                 }
             }

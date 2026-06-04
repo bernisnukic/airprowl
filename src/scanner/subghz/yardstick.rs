@@ -184,6 +184,7 @@ impl YardStick {
 }
 
 struct ScanRange {
+    #[allow(dead_code)] // labels document each range; the band is derived via freq_to_band
     label: &'static str,
     start_hz: u32,
     end_hz: u32,

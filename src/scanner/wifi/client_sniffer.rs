@@ -128,10 +128,8 @@ fn extract_rssi(data: &[u8], rt_len: usize) -> Option<i16> {
     if present & (1 << 2) != 0 { offset += 1; }
     if present & (1 << 3) != 0 { offset = (offset + 1) & !1; offset += 4; }
     if present & (1 << 4) != 0 { offset += 2; }
-    if present & (1 << 5) != 0 {
-        if offset < rt_len && offset < data.len() {
-            return Some(data[offset] as i8 as i16);
-        }
+    if present & (1 << 5) != 0 && offset < rt_len && offset < data.len() {
+        return Some(data[offset] as i8 as i16);
     }
     None
 }

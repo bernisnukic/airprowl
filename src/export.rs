@@ -171,7 +171,7 @@ pub fn subghz_to_export(
             custom_name: names(&d.freq_hz.to_string()),
         })
         .collect();
-    out.sort_by(|a, b| b.rssi_dbm.cmp(&a.rssi_dbm));
+    out.sort_by_key(|d| std::cmp::Reverse(d.rssi_dbm));
     out
 }
 
