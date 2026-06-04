@@ -57,6 +57,30 @@ pub struct WifiDevice {
     pub last_seen: Instant,
 }
 
+/// Update an EMA field in place, snapshotting the previous EMA every
+/// `prevema_every` samples so trend arrows compare against a meaningful delta
+/// rather than per-sample jitter.
+fn update_ema(
+    ema: &mut Option<f64>,
+    prev_ema: &mut Option<f64>,
+    sample_count: u32,
+    prevema_every: u32,
+    value: f64,
+) {
+    match *ema {
+        None => {
+            *ema = Some(value);
+            *prev_ema = None;
+        }
+        Some(prev) => {
+            if sample_count % prevema_every == 0 {
+                *prev_ema = Some(prev);
+            }
+            *ema = Some(ema_update(prev, value));
+        }
+    }
+}
+
 pub fn apply_bt_update(devices: &mut HashMap<String, BtDevice>, update: BtUpdate) {
     let now = Instant::now();
     let device = devices.entry(update.address.clone()).or_insert_with(|| BtDevice {
@@ -92,19 +116,14 @@ pub fn apply_bt_update(devices: &mut HashMap<String, BtDevice>, update: BtUpdate
     if let Some(rssi) = update.rssi {
         device.rssi = Some(rssi);
         device.sample_count += 1;
-
-        match device.ema {
-            None => {
-                device.ema = Some(rssi as f64);
-                device.prev_ema = None;
-            }
-            Some(prev) => {
-                if device.sample_count % config::BT_PREVEMA_EVERY == 0 {
-                    device.prev_ema = Some(prev);
-                }
-                device.ema = Some(ema_update(prev, rssi as f64));
-            }
-        }
+        let count = device.sample_count;
+        update_ema(
+            &mut device.ema,
+            &mut device.prev_ema,
+            count,
+            config::BT_PREVEMA_EVERY,
+            rssi as f64,
+        );
     }
 
     if let Some(tp) = update.tx_power {
@@ -141,19 +160,14 @@ pub fn apply_wifi_ap_update(devices: &mut HashMap<String, WifiDevice>, update: W
     if let Some(sig) = update.signal_pct {
         device.signal_pct = Some(sig);
         device.sample_count += 1;
-
-        match device.ema {
-            None => {
-                device.ema = Some(sig);
-                device.prev_ema = None;
-            }
-            Some(prev) => {
-                if device.sample_count % config::AP_PREVEMA_EVERY == 0 {
-                    device.prev_ema = Some(prev);
-                }
-                device.ema = Some(ema_update(prev, sig));
-            }
-        }
+        let count = device.sample_count;
+        update_ema(
+            &mut device.ema,
+            &mut device.prev_ema,
+            count,
+            config::AP_PREVEMA_EVERY,
+            sig,
+        );
     }
 }
 
@@ -174,19 +188,14 @@ pub fn apply_subghz_update(devices: &mut HashMap<String, SubGhzDevice>, sig: Sub
     device.last_seen = now;
     device.rssi = sig.rssi_dbm;
     device.sample_count += 1;
-
-    match device.ema {
-        None => {
-            device.ema = Some(sig.rssi_dbm as f64);
-            device.prev_ema = None;
-        }
-        Some(prev) => {
-            if device.sample_count % config::SUBGHZ_PREVEMA_EVERY == 0 {
-                device.prev_ema = Some(prev);
-            }
-            device.ema = Some(ema_update(prev, sig.rssi_dbm as f64));
-        }
-    }
+    let count = device.sample_count;
+    update_ema(
+        &mut device.ema,
+        &mut device.prev_ema,
+        count,
+        config::SUBGHZ_PREVEMA_EVERY,
+        sig.rssi_dbm as f64,
+    );
 }
 
 pub fn apply_wifi_client_update(devices: &mut HashMap<String, WifiDevice>, update: WifiClientUpdate) {
@@ -218,18 +227,13 @@ pub fn apply_wifi_client_update(devices: &mut HashMap<String, WifiDevice>, updat
     if let Some(rssi) = update.rssi {
         device.rssi = Some(rssi);
         device.sample_count += 1;
-
-        match device.ema {
-            None => {
-                device.ema = Some(rssi as f64);
-                device.prev_ema = None;
-            }
-            Some(prev) => {
-                if device.sample_count % config::CLIENT_PREVEMA_EVERY == 0 {
-                    device.prev_ema = Some(prev);
-                }
-                device.ema = Some(ema_update(prev, rssi as f64));
-            }
-        }
+        let count = device.sample_count;
+        update_ema(
+            &mut device.ema,
+            &mut device.prev_ema,
+            count,
+            config::CLIENT_PREVEMA_EVERY,
+            rssi as f64,
+        );
     }
 }
