@@ -10,8 +10,10 @@ const YS1_PIDS: &[u16] = &[0x605b, 0x6048, 0x604f, 0x6047];
 const EP_OUT: u8 = 0x05;
 const EP_IN: u8 = 0x85;
 
-const APP_SYSTEM: u8 = 0xff;
-const SYS_CMD_PING: u8 = 0x82;
+// CC1111 protocol constants — kept for documentation even when unused so the
+// register/strobe layout matches the chip datasheet at a glance.
+#[allow(dead_code)] const APP_SYSTEM: u8 = 0xff;
+#[allow(dead_code)] const SYS_CMD_PING: u8 = 0x82;
 const SYS_CMD_PEEK: u8 = 0x80;
 const SYS_CMD_POKE: u8 = 0x81;
 
@@ -19,15 +21,15 @@ const SYS_CMD_POKE: u8 = 0x81;
 const RFST: u16 = 0xdfe1;   // RF strobe
 const RSSI: u16 = 0xdf06;   // RSSI value
 const FREQ2: u16 = 0xdf09;
-const FREQ1: u16 = 0xdf0a;
-const FREQ0: u16 = 0xdf0b;
+#[allow(dead_code)] const FREQ1: u16 = 0xdf0a; // FREQ2 cascades, we only write FREQ2
+#[allow(dead_code)] const FREQ0: u16 = 0xdf0b;
 const MARCSTATE: u16 = 0xdf14; // Main Radio FSM State
 
 // RF strobes
-const SFSTXON: u8 = 0x00;
+#[allow(dead_code)] const SFSTXON: u8 = 0x00; // datasheet-completeness
 const SCAL: u8 = 0x01;
 const SRX: u8 = 0x02;
-const STX: u8 = 0x03;
+#[allow(dead_code)] const STX: u8 = 0x03;     // RX-only scanner; TX strobe kept for reference
 const SIDLE: u8 = 0x04;
 
 const CRYSTAL_MHZ: f64 = 24.0;
@@ -171,6 +173,9 @@ impl YardStick {
         Ok(rssi)
     }
 
+    /// Liveness check via SYS_CMD_PING — currently unused (we use the MARCSTATE
+    /// peek result as our liveness signal during scanner startup).
+    #[allow(dead_code)]
     fn ping(&self) -> bool {
         self.send_cmd(APP_SYSTEM, SYS_CMD_PING, b"ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .map(|r| !r.is_empty())
