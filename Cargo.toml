@@ -2,8 +2,14 @@
 name = "airprowl"
 version = "1.0.0"
 edition = "2021"
-description = "Real-time Bluetooth & WiFi scanner TUI"
+rust-version = "1.75"
+description = "Real-time Bluetooth, WiFi, and Sub-GHz wireless scanner TUI for Linux"
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/bernisnukic/airprowl"
+homepage = "https://github.com/bernisnukic/airprowl"
+keywords = ["bluetooth", "wifi", "sub-ghz", "scanner", "tui"]
+categories = ["command-line-utilities", "network-programming"]
 
 [[bin]]
 name = "airprowl"
