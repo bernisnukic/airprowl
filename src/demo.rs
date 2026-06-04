@@ -7,8 +7,11 @@ use tokio::sync::mpsc;
 
 use crate::events::{AppEvent, BtUpdate, SubGhzSignal, WifiApUpdate, WifiClientUpdate};
 
+type BtRow = (&'static str, Option<&'static str>, Option<u16>, Option<&'static str>, bool, i16);
+type ApRow = (&'static str, Option<&'static str>, &'static str, &'static str, &'static str, f64);
+
 // address, name, company_id, icon, is_random, base rssi (dBm)
-const BT: &[(&str, Option<&str>, Option<u16>, Option<&str>, bool, i16)] = &[
+const BT: &[BtRow] = &[
     ("F4:0E:22:6B:1A:3C", Some("AirPods Pro"), Some(76), Some("audio-headset"), false, -47),
     ("5C:F3:70:22:9D:18", None, Some(76), Some("phone"), false, -61),
     ("C8:69:CD:04:7E:B2", Some("Living Room TV"), Some(117), Some("video-display"), false, -68),
@@ -18,7 +21,7 @@ const BT: &[(&str, Option<&str>, Option<u16>, Option<&str>, bool, i16)] = &[
 ];
 
 // bssid, ssid, security, channel, frequency, base signal (%)
-const APS: &[(&str, Option<&str>, &str, &str, &str, f64)] = &[
+const APS: &[ApRow] = &[
     ("A4:2B:B0:8C:11:90", Some("Aurora_5G"), "WPA2", "44", "5220 MHz", 84.0),
     ("D8:47:32:6E:AA:01", Some("eduroam"), "WPA2-EAP", "36", "5180 MHz", 61.0),
     ("F0:9F:C2:1D:55:7A", Some("CoffeeBar Guest"), "WPA2", "6", "2437 MHz", 48.0),
