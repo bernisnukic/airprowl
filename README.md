@@ -6,6 +6,11 @@ Real-time wireless scanner for Linux. Tracks nearby Bluetooth, WiFi (APs + clien
 ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
+![airprowl — live Bluetooth / WiFi / Sub-GHz scanning](docs/demo.gif)
+
+> Recorded from `airprowl --demo` (simulated devices — no hardware needed).
+> Reproduce it with `scripts/record-demo.sh`, or run the **Demo GIF** workflow.
+
 ---
 
 ## Table of Contents
