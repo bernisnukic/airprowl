@@ -6,6 +6,7 @@ mod app;
 mod ble;
 mod cli;
 mod config;
+mod demo;
 mod events;
 mod export;
 mod names;
@@ -38,6 +39,11 @@ async fn main() -> anyhow::Result<()> {
 
     let (tx, rx) = mpsc::channel::<AppEvent>(1024);
 
+    if config.demo {
+        // Simulated device feed — no hardware needed (drives the README demo).
+        let demo_tx = tx.clone();
+        tokio::spawn(async move { demo::run_demo(demo_tx).await });
+    } else {
     // Spawn Bluetooth scanner
     let bt_tx = tx.clone();
     let bt_cfg = config.clone();
@@ -111,6 +117,7 @@ async fn main() -> anyhow::Result<()> {
                 .ok();
         }
     });
+    } // real scanners (skipped under --demo)
 
     // Tick timer (500ms)
     let tick_tx = tx.clone();

@@ -36,6 +36,7 @@ pub struct Config {
     pub names_path: PathBuf,
     pub is_root: bool,
     pub cli: Option<CliMode>,
+    pub demo: bool,
 }
 
 impl Config {
@@ -65,6 +66,7 @@ impl Config {
             .and_then(|p| p.parent().map(|d| d.join("names.json")))
             .unwrap_or_else(|| PathBuf::from("names.json"));
         let is_root = unsafe { libc::getuid() } == 0;
+        let demo = args.iter().any(|a| a == "--demo");
 
         Self {
             wifi_iface,
@@ -73,6 +75,7 @@ impl Config {
             names_path,
             is_root,
             cli,
+            demo,
         }
     }
 }
@@ -98,7 +101,7 @@ fn parse_cli(args: &[String]) -> Result<Option<CliMode>, String> {
                 duration_secs = val.parse().map_err(|_| format!("--duration: '{}' is not a positive integer", val))?;
                 i += 2;
             }
-            "--help" | "-h" | "--version" | "-V" => {
+            "--help" | "-h" | "--version" | "-V" | "--demo" => {
                 i += 1;
             }
             other => return Err(format!("unknown argument '{}'", other)),
@@ -112,6 +115,7 @@ fn print_help() {
     eprintln!();
     eprintln!("USAGE:");
     eprintln!("  airprowl                              Launch interactive TUI (default)");
+    eprintln!("  airprowl --demo                       Launch TUI with simulated devices");
     eprintln!("  airprowl --scan <TARGET> [OPTIONS]    Headless scan, JSON to stdout");
     eprintln!();
     eprintln!("CLI MODE:");
