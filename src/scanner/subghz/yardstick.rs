@@ -254,3 +254,17 @@ pub async fn run_subghz_scanner(tx: mpsc::Sender<AppEvent>) -> anyhow::Result<()
     handle.await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_freq_to_ism_band() {
+        assert_eq!(freq_to_band(433.92), "433 MHz");
+        assert_eq!(freq_to_band(315.0), "315 MHz");
+        assert_eq!(freq_to_band(868.3), "868 MHz");
+        assert_eq!(freq_to_band(915.0), "915 MHz");
+        assert_eq!(freq_to_band(100.0), "100 MHz"); // outside known bands -> fallback
+    }
+}

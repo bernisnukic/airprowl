@@ -131,3 +131,62 @@ pub fn signal_bar(value: f64, min: f64, max: f64, width: usize) -> (usize, Color
     };
     (fill.min(width), color)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn approx(a: f64, b: f64) -> bool {
+        (a - b).abs() < 1e-9
+    }
+
+    #[test]
+    fn ema_blends_by_alpha() {
+        // alpha = 0.4 -> 0.4*new + 0.6*prev
+        assert!(approx(ema_update(-60.0, -50.0), -56.0));
+        assert!(approx(ema_update(-50.0, -50.0), -50.0));
+    }
+
+    #[test]
+    fn wifi_pct_maps_to_dbm() {
+        assert!(approx(wifi_signal_to_dbm(100.0), -50.0));
+        assert!(approx(wifi_signal_to_dbm(0.0), -100.0));
+    }
+
+    #[test]
+    fn client_signal_normalizes_and_clamps() {
+        assert!(approx(normalize_client_signal(-100.0), 0.0));
+        assert!(approx(normalize_client_signal(-40.0), 100.0));
+        assert!(approx(normalize_client_signal(-200.0), 0.0)); // clamped low
+        assert!(approx(normalize_client_signal(0.0), 100.0)); // clamped high
+    }
+
+    #[test]
+    fn trend_arrow_reflects_delta() {
+        assert_eq!(trend_arrow(-50.0, None).symbol, " ~");
+        assert_eq!(trend_arrow(-50.0, Some(-55.0)).symbol, "↑↑"); // +5
+        assert_eq!(trend_arrow(-55.0, Some(-50.0)).symbol, "↓↓"); // -5
+        assert_eq!(trend_arrow(-50.0, Some(-50.5)).symbol, " ~"); // within deadband
+    }
+
+    #[test]
+    fn age_formats_compactly() {
+        assert_eq!(format_age(500), "<1s");
+        assert_eq!(format_age(5_000), "5s");
+        assert_eq!(format_age(65_000), "1m5s");
+    }
+
+    #[test]
+    fn signal_bar_fills_proportionally() {
+        assert_eq!(signal_bar(5.0, 0.0, 10.0, 20).0, 10);
+        assert_eq!(signal_bar(100.0, 0.0, 10.0, 20).0, 20); // clamped to width
+        assert_eq!(signal_bar(-5.0, 0.0, 10.0, 20).0, 0); // clamped to zero
+    }
+
+    #[test]
+    fn bt_distance_shrinks_with_stronger_signal() {
+        let near = bt_distance(-40.0, Some(-59));
+        let far = bt_distance(-80.0, Some(-59));
+        assert!(near < far);
+    }
+}

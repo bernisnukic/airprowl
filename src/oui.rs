@@ -139,3 +139,40 @@ fn shorten_vendor(name: &str) -> String {
         words.join(" ")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_mac_prefix_in_any_format() {
+        let want = [0x00, 0x11, 0x22];
+        assert_eq!(parse_mac_prefix("00:11:22:33:44:55"), Some(want));
+        assert_eq!(parse_mac_prefix("001122334455"), Some(want));
+        assert_eq!(parse_mac_prefix("00-11-22-33-44-55"), Some(want));
+        assert_eq!(parse_mac_prefix("0a:1b"), None); // too short
+    }
+
+    #[test]
+    fn detects_locally_administered_bit() {
+        assert!(is_locally_administered("02:00:00:00:00:00"));
+        assert!(is_locally_administered("a6:11:22:33:44:55")); // 0xa6 & 0x02 != 0
+        assert!(!is_locally_administered("00:11:22:33:44:55"));
+    }
+
+    #[test]
+    fn wifi_vendor_flags_random_macs() {
+        assert_eq!(
+            vendor_for_wifi("02:11:22:33:44:55", None).as_deref(),
+            Some("random")
+        );
+        assert_eq!(vendor_for_wifi("00:11:22:33:44:55", None), None); // no db, not random
+    }
+
+    #[test]
+    fn shortens_vendor_names() {
+        assert_eq!(shorten_vendor("Apple, Inc."), "Apple");
+        assert_eq!(shorten_vendor("Samsung Electronics Co. Ltd."), "Samsung");
+        assert_eq!(shorten_vendor("Cisco Systems"), "Cisco Systems");
+    }
+}
