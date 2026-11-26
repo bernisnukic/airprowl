@@ -109,6 +109,9 @@ macOS is stricter than Linux about what a scanner may see:
 ## Install
 
 ```bash
+# Homebrew (macOS, or Linux with Homebrew)
+brew install bernisnukic/tap/airprowl
+
 # Any platform with Rust 1.89+ (on Linux, install the prerequisites above first)
 cargo install airprowl
 ```
