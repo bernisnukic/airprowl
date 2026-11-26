@@ -18,15 +18,16 @@ Real-time wireless scanner for Linux and macOS. Tracks nearby Bluetooth, WiFi (A
 1. [Features](#features)
 2. [Prerequisites](#prerequisites)
    - [macOS](#macos)
-3. [Build](#build)
-4. [Interactive TUI](#interactive-tui)
-5. [CLI mode (headless JSON)](#cli-mode-headless-json)
-6. [Exported JSON schema](#exported-json-schema)
-7. [How it works](#how-it-works)
-8. [Project structure](#project-structure)
-9. [Configuration](#configuration)
-10. [Bundled data](#bundled-data)
-11. [License](#license)
+3. [Install](#install)
+4. [Build](#build)
+5. [Interactive TUI](#interactive-tui)
+6. [CLI mode (headless JSON)](#cli-mode-headless-json)
+7. [Exported JSON schema](#exported-json-schema)
+8. [How it works](#how-it-works)
+9. [Project structure](#project-structure)
+10. [Configuration](#configuration)
+11. [Bundled data](#bundled-data)
+12. [License](#license)
 
 ---
 
@@ -102,6 +103,17 @@ macOS is stricter than Linux about what a scanner may see:
 | WiFi clients | Not available: macOS offers no supported monitor mode |
 | WiFi connect (`w`) | Uses `networksetup`; only works when macOS reveals the network's name |
 | Sub-GHz | Same Yard Stick One code as on Linux, via the bundled libusb (untested on macOS) |
+
+---
+
+## Install
+
+```bash
+# Any platform with Rust 1.89+ (on Linux, install the prerequisites above first)
+cargo install airprowl
+```
+
+Prebuilt Linux x86_64 and macOS Apple Silicon binaries are on the [releases page](https://github.com/bernisnukic/airprowl/releases).
 
 ---
 

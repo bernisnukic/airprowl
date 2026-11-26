@@ -1,6 +1,6 @@
 [package]
 name = "airprowl"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.89"
 description = "Real-time Bluetooth, WiFi, and Sub-GHz wireless scanner TUI for Linux and macOS"
@@ -9,6 +9,8 @@ readme = "README.md"
 repository = "https://github.com/bernisnukic/airprowl"
 keywords = ["bluetooth", "wifi", "sub-ghz", "scanner", "tui"]
 categories = ["command-line-utilities", "network-programming"]
+# Only what a build needs; the demo GIF, Dockerfiles and CI stay on GitHub.
+include = ["src/**/*.rs", "data/*.txt", "macos/Info.plist", "build.rs", "README.md", "LICENSE"]
 
 [[bin]]
 name = "airprowl"
