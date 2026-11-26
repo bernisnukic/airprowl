@@ -58,15 +58,19 @@ Real-time wireless scanner for Linux and macOS. Tracks nearby Bluetooth, WiFi (A
 
 ## Prerequisites
 
+**macOS:** nothing to install.
+
+**Linux:** airprowl talks to two system services that desktop distros already run, BlueZ (the Linux Bluetooth stack) and NetworkManager (WiFi scans), and uses `iw` only for client sniffing. On a server or minimal install:
+
 ```bash
 # Debian/Ubuntu
-sudo apt install network-manager iw bluez libusb-1.0-0 libdbus-1-dev pkg-config
+sudo apt install bluez network-manager iw
 
 # Arch
-sudo pacman -S networkmanager iw bluez libusb pkg-config
+sudo pacman -S bluez networkmanager iw
 ```
 
-Rust **1.89+** (edition 2024).
+No libraries are needed: D-Bus and libusb are compiled into airprowl. Building from source (or `cargo install`) needs only Rust **1.89+** and a C compiler.
 
 **Optional hardware:** [Yard Stick One](https://greatscottgadgets.com/yardstickone/) (or any CC1111 dongle with USB VID `0x1d50` and PID in `0x6047/0x6048/0x604f/0x605b`) for Sub-GHz. Without it, the Sub-GHz tab stays empty — the rest works.
 
@@ -82,7 +86,7 @@ Run without sudo for BT + AP scanning. Run with `sudo` for the full feature set.
 
 ### macOS
 
-Nothing to install: libusb is compiled into the binary. Tested on macOS 26 on Apple Silicon.
+Nothing to install. Tested on macOS 26 on Apple Silicon.
 
 ```bash
 cargo build --release

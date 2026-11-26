@@ -19,11 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # bluer needs libdbus, rusb needs libusb. macOS builds libusb from source.
-      - name: Install system dependencies
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libusb-1.0-0-dev pkg-config
-
+      # No system libraries to install: libdbus and libusb are compiled in.
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy

@@ -1,4 +1,5 @@
 use std::time::Duration;
+use rusb::UsbContext;
 use tokio::sync::mpsc;
 
 use crate::config;
@@ -51,7 +52,7 @@ fn freq_to_band(freq_mhz: f64) -> String {
 }
 
 struct YardStick {
-    handle: rusb::DeviceHandle<rusb::GlobalContext>,
+    handle: rusb::DeviceHandle<rusb::Context>,
 }
 
 impl Drop for YardStick {
@@ -64,8 +65,12 @@ impl Drop for YardStick {
 
 impl YardStick {
     fn open() -> anyhow::Result<Self> {
+        // An own context, not rusb's global one: that one panics when libusb
+        // cannot start (no /dev/bus/usb, as in a container) instead of erroring.
+        let usb = rusb::Context::new()
+            .map_err(|e| anyhow::anyhow!("USB unavailable ({})", e))?;
         let handle = YS1_PIDS.iter()
-            .find_map(|pid| rusb::open_device_with_vid_pid(YS1_VID, *pid))
+            .find_map(|pid| usb.open_device_with_vid_pid(YS1_VID, *pid))
             .ok_or_else(|| anyhow::anyhow!("Yard Stick One not found"))?;
         let _ = handle.detach_kernel_driver(0);
 
@@ -77,7 +82,7 @@ impl YardStick {
                 drop(handle);
                 std::thread::sleep(Duration::from_millis(1000));
                 let handle = YS1_PIDS.iter()
-                    .find_map(|pid| rusb::open_device_with_vid_pid(YS1_VID, *pid))
+                    .find_map(|pid| usb.open_device_with_vid_pid(YS1_VID, *pid))
                     .ok_or_else(|| anyhow::anyhow!("YS1 lost after USB reset"))?;
                 let _ = handle.detach_kernel_driver(0);
                 handle.claim_interface(0)?;
