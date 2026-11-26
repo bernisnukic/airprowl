@@ -66,7 +66,7 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
         let name = entry.custom_name.as_deref().unwrap_or(display_name);
         let line = format!(
             "{}? {}{}  {:<18}  {:>7}  {}  {:>7}  {:>5}",
-            cursor, kind_tag, fixed_width(name, 24), &d.mac, sig, "░".repeat(20), dist.text, age,
+            cursor, kind_tag, fixed_width(name, 24), d.mac, sig, "░".repeat(20), dist.text, age,
         );
         f.render_widget(Paragraph::new(Span::styled(line, dim)), area);
         return;
@@ -110,7 +110,7 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
 
     // MAC
     spans.push(Span::styled(
-        format!("  {:<18}", &d.mac),
+        format!("  {:<18}", d.mac),
         Style::default().fg(Color::Cyan),
     ));
 

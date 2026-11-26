@@ -349,10 +349,9 @@ impl App {
             KeyCode::Char(c) => {
                 if !key.modifiers.contains(KeyModifiers::CONTROL)
                     && !key.modifiers.contains(KeyModifiers::ALT)
+                    && let Some(ref mut m) = self.tui.wifi_password_modal
                 {
-                    if let Some(ref mut m) = self.tui.wifi_password_modal {
-                        m.buffer.push(c);
-                    }
+                    m.buffer.push(c);
                 }
             }
             _ => {}
@@ -755,21 +754,21 @@ impl App {
         self.render_top_header(f, chunks[0], self.bt_updates, elapsed, active_count, stale_count);
         bt_table::render_bt_header(f, chunks[1]);
 
-        if self.tui.editing {
-            if let Some(ref frozen) = self.tui.frozen_order {
-                let by_id: HashMap<String, bt_table::BtListEntry> = list
-                    .drain(..)
-                    .map(|e| (e.device.address.clone(), e))
-                    .collect();
-                for id in frozen {
-                    if let Some(entry) = by_id.get(id) {
-                        list.push(bt_table::BtListEntry {
-                            device: entry.device.clone(),
-                            stale: entry.stale,
-                            custom_name: entry.custom_name.clone(),
-                            vendor: entry.vendor.clone(),
-                        });
-                    }
+        if self.tui.editing
+            && let Some(ref frozen) = self.tui.frozen_order
+        {
+            let by_id: HashMap<String, bt_table::BtListEntry> = list
+                .drain(..)
+                .map(|e| (e.device.address.clone(), e))
+                .collect();
+            for id in frozen {
+                if let Some(entry) = by_id.get(id) {
+                    list.push(bt_table::BtListEntry {
+                        device: entry.device.clone(),
+                        stale: entry.stale,
+                        custom_name: entry.custom_name.clone(),
+                        vendor: entry.vendor.clone(),
+                    });
                 }
             }
         }

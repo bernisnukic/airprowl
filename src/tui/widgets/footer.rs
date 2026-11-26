@@ -25,13 +25,13 @@ pub fn render_footer(
 
     let mut lines = vec![Line::from(Span::styled(hints, dim))];
 
-    if show_status {
-        if let Some(status) = status {
-            lines.push(Line::from(Span::styled(
-                format!("⚠ {}", status),
-                Style::default().fg(Color::Yellow),
-            )));
-        }
+    if show_status
+        && let Some(status) = status
+    {
+        lines.push(Line::from(Span::styled(
+            format!("⚠ {}", status),
+            Style::default().fg(Color::Yellow),
+        )));
     }
 
     let paragraph = Paragraph::new(lines);

@@ -35,10 +35,10 @@ impl NameStore {
 
     fn save(&self) {
         let tmp = self.path.with_extension("json.tmp");
-        if let Ok(data) = serde_json::to_string_pretty(&self.names) {
-            if fs::write(&tmp, data.as_bytes()).is_ok() {
-                let _ = fs::rename(&tmp, &self.path);
-            }
+        if let Ok(data) = serde_json::to_string_pretty(&self.names)
+            && fs::write(&tmp, data.as_bytes()).is_ok()
+        {
+            let _ = fs::rename(&tmp, &self.path);
         }
     }
 }

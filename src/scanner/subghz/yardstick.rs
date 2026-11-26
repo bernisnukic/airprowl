@@ -232,17 +232,17 @@ pub async fn run_subghz_scanner(tx: mpsc::Sender<AppEvent>) -> anyhow::Result<()
                         drop(ys); // triggers USB cleanup
                         return;
                     }
-                    if let Ok(rssi_dbm) = ys.measure_freq(freq) {
-                        if rssi_dbm > NOISE_FLOOR_DBM {
-                            let freq_mhz = freq as f64 / 1_000_000.0;
-                            if tx.blocking_send(AppEvent::SubGhzSignal(SubGhzSignal {
-                                freq_hz: freq,
-                                rssi_dbm: rssi_dbm as i16,
-                                band: freq_to_band(freq_mhz),
-                            })).is_err() {
-                                drop(ys);
-                                return;
-                            }
+                    if let Ok(rssi_dbm) = ys.measure_freq(freq)
+                        && rssi_dbm > NOISE_FLOOR_DBM
+                    {
+                        let freq_mhz = freq as f64 / 1_000_000.0;
+                        if tx.blocking_send(AppEvent::SubGhzSignal(SubGhzSignal {
+                            freq_hz: freq,
+                            rssi_dbm: rssi_dbm as i16,
+                            band: freq_to_band(freq_mhz),
+                        })).is_err() {
+                            drop(ys);
+                            return;
                         }
                     }
                     std::thread::sleep(Duration::from_micros(config::SUBGHZ_STEP_DELAY_US));

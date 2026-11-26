@@ -2,7 +2,7 @@
 
 Real-time wireless scanner for Linux. Tracks nearby Bluetooth, WiFi (APs + clients), and Sub-GHz (315/433/868/915 MHz) devices with live RSSI, EMA-smoothed averages, trend arrows, distance estimates, vendor identification, and persistent custom names. Runs as an interactive TUI or as a headless CLI that emits JSON.
 
-![Rust](https://img.shields.io/badge/rust-edition_2021-orange)
+![Rust](https://img.shields.io/badge/rust-edition_2024-orange)
 ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
@@ -63,7 +63,7 @@ sudo apt install network-manager iw bluez libusb-1.0-0 libdbus-1-dev pkg-config
 sudo pacman -S networkmanager iw bluez libusb pkg-config
 ```
 
-Rust **1.75+** (edition 2021).
+Rust **1.89+** (edition 2024).
 
 **Optional hardware:** [Yard Stick One](https://greatscottgadgets.com/yardstickone/) (or any CC1111 dongle with USB VID `0x1d50` and PID in `0x6047/0x6048/0x604f/0x605b`) for Sub-GHz. Without it, the Sub-GHz tab stays empty — the rest works.
 

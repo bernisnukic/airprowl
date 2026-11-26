@@ -73,7 +73,7 @@ fn update_ema(
             *prev_ema = None;
         }
         Some(prev) => {
-            if sample_count % prevema_every == 0 {
+            if sample_count.is_multiple_of(prevema_every) {
                 *prev_ema = Some(prev);
             }
             *ema = Some(ema_update(prev, value));

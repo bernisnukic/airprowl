@@ -47,7 +47,7 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
             "{}? {}  {:<18}  {:>4} dBm  {:>4} dBm  {}  {:>7} {}  {:>5}",
             cursor,
             fixed_width(name, 29),
-            &d.address,
+            d.address,
             d.rssi.unwrap_or(0),
             ema as i16,
             "░".repeat(20),
@@ -94,7 +94,7 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
     }
 
     spans.extend([
-        Span::styled(format!("  {:<18}", &d.address), Style::default().fg(Color::Cyan)),
+        Span::styled(format!("  {:<18}", d.address), Style::default().fg(Color::Cyan)),
         Span::styled(format!("  {:>4} dBm", rssi), Style::default().fg(color)),
         Span::styled(format!("  {:>4} dBm", ema as i16), Style::default().fg(color)),
         Span::raw("  "),

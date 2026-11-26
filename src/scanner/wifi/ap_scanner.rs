@@ -45,10 +45,10 @@ pub async fn run_ap_scanner(
                     if line.is_empty() {
                         continue;
                     }
-                    if let Some(update) = parse_nmcli_line(line) {
-                        if tx.send(AppEvent::WifiApUpdate(update)).await.is_err() {
-                            return Ok(());
-                        }
+                    if let Some(update) = parse_nmcli_line(line)
+                        && tx.send(AppEvent::WifiApUpdate(update)).await.is_err()
+                    {
+                        return Ok(());
                     }
                 }
             }

@@ -48,7 +48,7 @@ pub fn render_subghz_row(f: &mut Frame, area: Rect, entry: &SubGhzListEntry, sel
         let name = entry.custom_name.as_deref().unwrap_or(&freq_str);
         let line = format!(
             "{}? {}  {:>10}  {:>4} dBm  {:>4} dBm  {}  {:>12}  {:>5}",
-            cursor, fixed_width(name, 24), &d.band, d.rssi, ema as i16,
+            cursor, fixed_width(name, 24), d.band, d.rssi, ema as i16,
             "░".repeat(20), d.sample_count, age,
         );
         f.render_widget(Paragraph::new(Span::styled(line, dim)), area);
@@ -78,7 +78,7 @@ pub fn render_subghz_row(f: &mut Frame, area: Rect, entry: &SubGhzListEntry, sel
     }
 
     spans.extend([
-        Span::styled(format!("  {:>10}", &d.band), Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("  {:>10}", d.band), Style::default().fg(Color::DarkGray)),
         Span::styled(format!("  {:>4} dBm", d.rssi), Style::default().fg(color)),
         Span::styled(format!("  {:>4} dBm", ema as i16), Style::default().fg(color)),
         Span::raw("  "),

@@ -136,10 +136,10 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         let mut reader = EventStream::new();
         while let Some(Ok(event)) = reader.next().await {
-            if let Event::Key(key) = event {
-                if key_tx.send(AppEvent::Key(key)).await.is_err() {
-                    break;
-                }
+            if let Event::Key(key) = event
+                && key_tx.send(AppEvent::Key(key)).await.is_err()
+            {
+                break;
             }
         }
     });
