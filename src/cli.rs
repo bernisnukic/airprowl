@@ -1,9 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tokio::sync::{mpsc, Mutex};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::mpsc;
 
 use crate::ble::BleCompanyDb;
 use crate::config::{CliMode, Config, ScanTarget};
@@ -133,34 +132,7 @@ fn spawn_scanners(
                 }
             });
             // Best-effort monitor mode for client sniffing (requires root)
-            let tx_mon = tx.clone();
-            let cfg = config.clone();
-            tokio::spawn(async move {
-                match scanner::wifi::monitor::setup_monitor(cfg.clone()).await {
-                    Err(e) => {
-                        tx_mon.send(AppEvent::WifiStatus(Some(format!(
-                            "No monitor mode — {}. AP scanning only.",
-                            e
-                        )))).await.ok();
-                    }
-                    Ok(mon_handle) => {
-                        let known_aps = Arc::new(Mutex::new(HashSet::new()));
-                        let cancel = CancellationToken::new();
-                        let sniff_iface = mon_handle.sniff_iface.clone();
-                        if let Err(e) = scanner::wifi::client_sniffer::run_client_sniffer(
-                            sniff_iface,
-                            tx_mon.clone(),
-                            known_aps,
-                            cancel.clone(),
-                        ).await {
-                            tx_mon.send(AppEvent::WifiStatus(Some(format!("Sniffer error: {}", e))))
-                                .await.ok();
-                        }
-                        cancel.cancel();
-                        drop(mon_handle);
-                    }
-                }
-            });
+            tokio::spawn(scanner::wifi::run_client_capture(config.clone(), tx.clone()));
         }
         ScanTarget::SubGhz => {
             let tx = tx.clone();

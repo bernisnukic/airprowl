@@ -1,9 +1,9 @@
 # airprowl
 
-Real-time wireless scanner for Linux. Tracks nearby Bluetooth, WiFi (APs + clients), and Sub-GHz (315/433/868/915 MHz) devices with live RSSI, EMA-smoothed averages, trend arrows, distance estimates, vendor identification, and persistent custom names. Runs as an interactive TUI or as a headless CLI that emits JSON.
+Real-time wireless scanner for Linux and macOS. Tracks nearby Bluetooth, WiFi (APs + clients), and Sub-GHz (315/433/868/915 MHz) devices with live RSSI, EMA-smoothed averages, trend arrows, distance estimates, vendor identification, and persistent custom names. Runs as an interactive TUI or as a headless CLI that emits JSON.
 
 ![Rust](https://img.shields.io/badge/rust-edition_2024-orange)
-![Platform](https://img.shields.io/badge/platform-Linux-blue)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
 ![airprowl — live Bluetooth / WiFi / Sub-GHz scanning](docs/demo.gif)
@@ -17,6 +17,7 @@ Real-time wireless scanner for Linux. Tracks nearby Bluetooth, WiFi (APs + clien
 
 1. [Features](#features)
 2. [Prerequisites](#prerequisites)
+   - [macOS](#macos)
 3. [Build](#build)
 4. [Interactive TUI](#interactive-tui)
 5. [CLI mode (headless JSON)](#cli-mode-headless-json)
@@ -50,6 +51,7 @@ Real-time wireless scanner for Linux. Tracks nearby Bluetooth, WiFi (APs + clien
 - **WiFi connect** — `w` key triggers `nmcli` connect, with password modal for secured APs
 - **Export** — `e` key dumps current tab to JSON in the working directory
 - **Interface health surfaced in the UI** — down WiFi iface or stopped bluetoothd shows up in the footer with the fix
+- **macOS too** — BLE through CoreBluetooth, WiFi APs through `system_profiler`, Yard Stick One through libusb; see [macOS](#macos) for what macOS allows
 
 ---
 
@@ -76,6 +78,30 @@ Rust **1.89+** (edition 2024).
 | Sub-GHz / Yard Stick USB | **yes** |
 
 Run without sudo for BT + AP scanning. Run with `sudo` for the full feature set.
+
+### macOS
+
+Nothing to install: libusb is compiled into the binary. Tested on macOS 26 on Apple Silicon.
+
+```bash
+cargo build --release
+cp target/release/airprowl /usr/local/bin/   # or anywhere on the internal disk
+airprowl
+```
+
+On first launch macOS asks whether **airprowl** may use Bluetooth; allow it. Each new build asks again, because macOS ties the permission to the exact binary. To stay its own app in macOS's eyes (so the prompt names airprowl, not your terminal), airprowl relaunches itself once at startup.
+
+Keep the binary on the internal disk. Run from an external drive, macOS also asks airprowl for access to that removable volume, and the scan waits until you answer.
+
+macOS is stricter than Linux about what a scanner may see:
+
+| Feature | macOS |
+|---|---|
+| Bluetooth | BLE only (no classic BR/EDR). macOS never reveals MAC addresses, so devices carry a per-Mac UUID, shown in the **Device ID** column; vendors come from the BLE manufacturer data, not the OUI database |
+| WiFi APs | Read from `system_profiler` every 10 s, no root. No BSSIDs, and macOS hides network names from tools like this one, so rows are one per channel with signal and security |
+| WiFi clients | Not available: macOS offers no supported monitor mode |
+| WiFi connect (`w`) | Uses `networksetup`; only works when macOS reveals the network's name |
+| Sub-GHz | Same Yard Stick One code as on Linux, via the bundled libusb (untested on macOS) |
 
 ---
 
@@ -251,6 +277,10 @@ Both the TUI `e` key and CLI mode produce the same per-device shapes.
 | WiFi monitor | `scanner/wifi/monitor.rs` | `iw dev … interface add … type monitor` creates virtual iface; `Drop` impl tears it down |
 | WiFi clients | `scanner/wifi/client_sniffer.rs` | `pnet` raw datalink, `libwifi` 802.11 parser, hand-rolled radiotap RSSI extractor |
 | Sub-GHz | `scanner/subghz/yardstick.rs` | Direct USB bulk transfers to CC1111: pokes FREQ2/FREQ1/FREQ0 registers, strobes SCAL/SRX, reads RSSI |
+| Bluetooth (macOS) | `scanner/bluetooth_macos.rs` | `btleplug` over CoreBluetooth: scan events with RSSI, TX power, name and manufacturer data |
+| WiFi AP (macOS) | `scanner/wifi/ap_scanner_macos.rs` | Periodic `system_profiler SPAirPortDataType -json`, keyed `ssid@channel` (or `ch<N>` when names are hidden) |
+
+Each platform compiles only its own backends (`#[cfg(target_os = …)]`); they all send the same `AppEvent`s, so the TUI, store and export code are shared. On macOS, `macos_spawn.rs` relaunches the binary as its own "responsible process" so the Bluetooth permission is asked for airprowl itself, using the Info.plist that `build.rs` embeds from `macos/Info.plist`.
 
 **Signal smoothing.** RSSI is smoothed with an EMA (`α = 0.4`). Every N samples (per-source constants in `config.rs`) a previous-EMA snapshot is captured so trend arrows reflect meaningful deltas, not per-sample jitter. Distance is the log-distance path-loss model with per-source reference RSSI and exponent.
 
@@ -275,6 +305,9 @@ airprowl/
                             embedded into the binary via include_str!)
     ble-companies.txt       Bluetooth SIG Company Identifiers
                             (sourced from bluetooth.com, embedded)
+  macos/
+    Info.plist              Bluetooth usage text, embedded by build.rs
+  build.rs                  Embeds macos/Info.plist into the macOS binary
   src/
     main.rs                 Entry point, scanner task fan-in, CLI/TUI dispatch
     cli.rs                  Headless --scan mode runner
@@ -288,12 +321,16 @@ airprowl/
     ble.rs                  Bluetooth SIG Company ID lookup
     export.rs               Serializable export structs (JSON)
     util.rs                 unicode-width-aware string padding
+    macos_spawn.rs          macOS: relaunch as own responsible process
     scanner/
-      bluetooth.rs          BlueZ D-Bus
+      bluetooth.rs          BlueZ D-Bus (Linux)
+      bluetooth_macos.rs    CoreBluetooth via btleplug (macOS)
       wifi/
-        ap_scanner.rs       nmcli polling + iface health check
-        monitor.rs          iw monitor-iface lifecycle
-        client_sniffer.rs   pnet + libwifi + radiotap
+        mod.rs              Client capture entry point per platform
+        ap_scanner.rs       nmcli polling + iface health check (Linux)
+        ap_scanner_macos.rs system_profiler polling (macOS)
+        monitor.rs          iw monitor-iface lifecycle (Linux)
+        client_sniffer.rs   pnet + libwifi + radiotap (Linux)
       subghz/
         yardstick.rs        CC1111 USB control
     tui/
@@ -315,8 +352,8 @@ airprowl/
 
 | Variable     | Default        | Description                                  |
 |--------------|----------------|----------------------------------------------|
-| `WIFI_IFACE` | `wlo1`         | WiFi interface (managed mode)                |
-| `BT_IFACE`   | auto-detect    | Bluetooth adapter (e.g. `hci0`)              |
+| `WIFI_IFACE` | `wlo1` (Linux), the Wi-Fi port such as `en0` (macOS) | WiFi interface (managed mode) |
+| `BT_IFACE`   | auto-detect    | Bluetooth adapter (e.g. `hci0`), Linux only  |
 
 The monitor interface name is derived as `${WIFI_IFACE}mon` (e.g. `wlo1mon`).
 

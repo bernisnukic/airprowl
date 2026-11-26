@@ -12,11 +12,18 @@ pub struct BtListEntry {
     pub vendor: Option<String>,
 }
 
+/// macOS hides MAC addresses; devices carry a per-Mac UUID instead, shown
+/// cut to the same 18 columns.
+#[cfg(target_os = "macos")]
+const ADDRESS_LABEL: &str = "Device ID";
+#[cfg(not(target_os = "macos"))]
+const ADDRESS_LABEL: &str = "MAC Address";
+
 pub fn render_bt_header(f: &mut Frame, area: Rect) {
     let dim_bold = Style::default().fg(Color::DarkGray).bold();
     let header = format!(
         "    {:<3}{:<29}  {:<18}  {:>8}  {:>8}  {:<20}  {:<20}  {:>5}",
-        "⬍", "Name", "MAC Address", "RSSI", "Avg", "Signal", "~Distance", "Seen"
+        "⬍", "Name", ADDRESS_LABEL, "RSSI", "Avg", "Signal", "~Distance", "Seen"
     );
     f.render_widget(Paragraph::new(Span::styled(header, dim_bold)), area);
 }
@@ -44,10 +51,10 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
             .or(fallback_label.as_deref())
             .unwrap_or(&d.address);
         let line = format!(
-            "{}? {}  {:<18}  {:>4} dBm  {:>4} dBm  {}  {:>7} {}  {:>5}",
+            "{}? {}  {}  {:>4} dBm  {:>4} dBm  {}  {:>7} {}  {:>5}",
             cursor,
             fixed_width(name, 29),
-            d.address,
+            fixed_width(&d.address, 18),
             d.rssi.unwrap_or(0),
             ema as i16,
             "░".repeat(20),
@@ -94,7 +101,7 @@ pub fn render_bt_row(f: &mut Frame, area: Rect, entry: &BtListEntry, selected: b
     }
 
     spans.extend([
-        Span::styled(format!("  {:<18}", d.address), Style::default().fg(Color::Cyan)),
+        Span::styled(format!("  {}", fixed_width(&d.address, 18)), Style::default().fg(Color::Cyan)),
         Span::styled(format!("  {:>4} dBm", rssi), Style::default().fg(color)),
         Span::styled(format!("  {:>4} dBm", ema as i16), Style::default().fg(color)),
         Span::raw("  "),

@@ -31,9 +31,12 @@ pub struct CliMode {
 
 pub struct Config {
     pub wifi_iface: String,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // monitor mode
     pub mon_iface: String,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // BlueZ adapter choice
     pub bt_iface: Option<String>,
     pub names_path: PathBuf,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // monitor mode
     pub is_root: bool,
     pub cli: Option<CliMode>,
     pub demo: bool,
@@ -58,7 +61,7 @@ impl Config {
             std::process::exit(2);
         });
 
-        let wifi_iface = env::var("WIFI_IFACE").unwrap_or_else(|_| "wlo1".into());
+        let wifi_iface = env::var("WIFI_IFACE").unwrap_or_else(|_| default_wifi_iface());
         let mon_iface = format!("{}mon", wifi_iface);
         let bt_iface = env::var("BT_IFACE").ok();
         let names_path = env::current_exe()
@@ -78,6 +81,28 @@ impl Config {
             demo,
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn default_wifi_iface() -> String {
+    "wlo1".into()
+}
+
+/// The device behind the "Wi-Fi" hardware port (en0 on laptops, often en1 on
+/// desktops), as listed by `networksetup -listallhardwareports`.
+#[cfg(target_os = "macos")]
+fn default_wifi_iface() -> String {
+    std::process::Command::new("networksetup")
+        .arg("-listallhardwareports")
+        .output()
+        .ok()
+        .and_then(|out| {
+            let text = String::from_utf8_lossy(&out.stdout).into_owned();
+            let mut lines = text.lines();
+            lines.find(|l| l.trim() == "Hardware Port: Wi-Fi")?;
+            lines.next()?.trim().strip_prefix("Device: ").map(str::to_string)
+        })
+        .unwrap_or_else(|| "en0".into())
 }
 
 fn parse_cli(args: &[String]) -> Result<Option<CliMode>, String> {
@@ -111,7 +136,7 @@ fn parse_cli(args: &[String]) -> Result<Option<CliMode>, String> {
 }
 
 fn print_help() {
-    eprintln!("airprowl — real-time wireless scanner TUI for Linux");
+    eprintln!("airprowl — real-time wireless scanner TUI");
     eprintln!();
     eprintln!("USAGE:");
     eprintln!("  airprowl                              Launch interactive TUI (default)");
@@ -127,12 +152,12 @@ fn print_help() {
     eprintln!("  -V, --version             Show version");
     eprintln!();
     eprintln!("ENVIRONMENT:");
-    eprintln!("  WIFI_IFACE                WiFi interface (default: wlo1)");
-    eprintln!("  BT_IFACE                  Bluetooth adapter (default: auto-detect)");
+    eprintln!("  WIFI_IFACE                WiFi interface (default: wlo1 on Linux, the Wi-Fi port on macOS)");
+    eprintln!("  BT_IFACE                  Bluetooth adapter, Linux only (default: auto-detect)");
     eprintln!();
     eprintln!("EXAMPLES:");
     eprintln!("  airprowl                                 # Interactive TUI");
     eprintln!("  airprowl --scan bt --duration 5          # Quick 5s Bluetooth scan");
     eprintln!("  airprowl --scan wifi | jq '.devices[]'   # Pipe to jq");
-    eprintln!("  sudo airprowl --scan wifi                # With monitor-mode client sniffing");
+    eprintln!("  sudo airprowl --scan wifi                # With monitor-mode client sniffing (Linux)");
 }

@@ -12,11 +12,17 @@ pub struct WifiListEntry {
     pub vendor: Option<String>,
 }
 
+/// macOS reports no BSSIDs, so access points are keyed "ssid@channel".
+#[cfg(target_os = "macos")]
+const ADDRESS_LABEL: &str = "Network@chan";
+#[cfg(not(target_os = "macos"))]
+const ADDRESS_LABEL: &str = "MAC / BSSID";
+
 pub fn render_wifi_header(f: &mut Frame, area: Rect) {
     let dim_bold = Style::default().fg(Color::DarkGray).bold();
     let header = format!(
         "    {:<3}{:<27}  {:<18}  {:>8}  {:>8}  {:<20}  {:>7}  {:<25}  {:>5}",
-        "⬍", "Type / Name", "MAC / BSSID", "Signal", "Avg", "Strength", "~Dist", "Info", "Seen"
+        "⬍", "Type / Name", ADDRESS_LABEL, "Signal", "Avg", "Strength", "~Dist", "Info", "Seen"
     );
     f.render_widget(Paragraph::new(Span::styled(header, dim_bold)), area);
 }
@@ -66,7 +72,7 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
         let name = entry.custom_name.as_deref().unwrap_or(display_name);
         let line = format!(
             "{}? {}{}  {:<18}  {:>7}  {}  {:>7}  {:>5}",
-            cursor, kind_tag, fixed_width(name, 24), d.mac, sig, "░".repeat(20), dist.text, age,
+            cursor, kind_tag, fixed_width(name, 24), fixed_width(&d.mac, 18), sig, "░".repeat(20), dist.text, age,
         );
         f.render_widget(Paragraph::new(Span::styled(line, dim)), area);
         return;
@@ -110,7 +116,7 @@ pub fn render_wifi_row(f: &mut Frame, area: Rect, entry: &WifiListEntry, selecte
 
     // MAC
     spans.push(Span::styled(
-        format!("  {:<18}", d.mac),
+        format!("  {}", fixed_width(&d.mac, 18)),
         Style::default().fg(Color::Cyan),
     ));
 

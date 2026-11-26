@@ -31,6 +31,9 @@ impl OuiDb {
     }
 
     pub fn lookup(&self, mac: &str) -> Option<&str> {
+        if !is_full_mac(mac) {
+            return None;
+        }
         let prefix = parse_mac_prefix(mac)?;
         self.map.get(&prefix).map(|s| s.as_str())
     }
@@ -51,6 +54,15 @@ fn parse_mac_prefix(mac: &str) -> Option<[u8; 3]> {
     ])
 }
 
+/// True only for a complete hardware address ("00:11:22:33:44:55",
+/// "00-11-22-33-44-55", "0011.2233.4455" or bare hex). Device keys that are
+/// not MACs (CoreBluetooth UUIDs, macOS "ssid@channel" WiFi keys) must never
+/// be read as one, or stray hex letters in them would match a real vendor.
+fn is_full_mac(s: &str) -> bool {
+    s.chars().all(|c| c.is_ascii_hexdigit() || matches!(c, ':' | '-' | '.'))
+        && s.chars().filter(|c| c.is_ascii_hexdigit()).count() == 12
+}
+
 fn parse_line(line: &str) -> Option<([u8; 3], String)> {
     let mut tokens = line.split_whitespace();
     let prefix = parse_mac_prefix(tokens.next()?)?;
@@ -68,7 +80,7 @@ fn parse_line(line: &str) -> Option<([u8; 3], String)> {
 /// Locally-administered bit (bit 1 of first byte). The 802.11 randomization
 /// signal used by modern iOS/Android/Windows for probing privacy.
 fn is_locally_administered(mac: &str) -> bool {
-    parse_mac_prefix(mac).is_some_and(|b| b[0] & 0x02 != 0)
+    is_full_mac(mac) && parse_mac_prefix(mac).is_some_and(|b| b[0] & 0x02 != 0)
 }
 
 /// WiFi-side lookup: detects randomness via the IEEE LAA bit.
@@ -167,6 +179,17 @@ mod tests {
             Some("random")
         );
         assert_eq!(vendor_for_wifi("00:11:22:33:44:55", None), None); // no db, not random
+    }
+
+    #[test]
+    fn non_mac_keys_are_never_looked_up() {
+        // CoreBluetooth device UUID and a macOS WiFi key with hex-ish letters.
+        assert!(!is_full_mac("6F3A1B2C-4D5E-4F60-8A9B-0C1D2E3F4A5B"));
+        assert!(!is_full_mac("Cafe-Deadbeef@6"));
+        assert!(!is_locally_administered("Cafe-Deadbeef@6"));
+        assert_eq!(vendor_for_wifi("Cafe-Deadbeef@6", None), None);
+        assert!(is_full_mac("00:11:22:33:44:55"));
+        assert!(is_full_mac("001122334455"));
     }
 
     #[test]

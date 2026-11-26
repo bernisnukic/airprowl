@@ -10,13 +10,18 @@ env:
 
 jobs:
   check:
-    name: Build, test & clippy
-    runs-on: ubuntu-latest
+    name: Build, test & clippy (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      # bluer needs libdbus, rusb needs libusb.
+      # bluer needs libdbus, rusb needs libusb. macOS builds libusb from source.
       - name: Install system dependencies
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libusb-1.0-0-dev pkg-config
 
       - uses: dtolnay/rust-toolchain@stable

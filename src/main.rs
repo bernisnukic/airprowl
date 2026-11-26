@@ -9,6 +9,8 @@ mod config;
 mod demo;
 mod events;
 mod export;
+#[cfg(target_os = "macos")]
+mod macos_spawn;
 mod names;
 mod oui;
 mod scanner;
@@ -17,20 +19,32 @@ mod store;
 mod tui;
 mod util;
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event::{Event, EventStream};
 use futures::StreamExt;
-use tokio::sync::{mpsc, Mutex};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::mpsc;
 
 use crate::config::Config;
 use crate::events::AppEvent;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    // Before any threads exist: may relaunch this binary and never return.
+    #[cfg(target_os = "macos")]
+    macos_spawn::become_responsible();
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    let result = runtime.block_on(run());
+    // A backend stuck in a blocking OS call (CoreBluetooth waiting on a
+    // permission prompt, say) must not keep the process alive after we finish.
+    runtime.shutdown_timeout(Duration::from_secs(1));
+    result
+}
+
+async fn run() -> anyhow::Result<()> {
     let config = Arc::new(Config::from_env());
 
     if config.cli.is_some() {
@@ -69,43 +83,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Try monitor mode for passive client sniffing (on connected channel)
-    let mon_tx = tx.clone();
-    let mon_cfg = config.clone();
-    tokio::spawn(async move {
-        match scanner::wifi::monitor::setup_monitor(mon_cfg.clone()).await {
-            Err(e) => {
-                mon_tx
-                    .send(AppEvent::WifiStatus(Some(format!(
-                        "No monitor mode — {}. AP scanning only.",
-                        e
-                    ))))
-                    .await
-                    .ok();
-            }
-            Ok(mon_handle) => {
-                let known_aps = Arc::new(Mutex::new(HashSet::new()));
-                let cancel = CancellationToken::new();
-
-                let sniff_iface = mon_handle.sniff_iface.clone();
-                if let Err(e) = scanner::wifi::client_sniffer::run_client_sniffer(
-                    sniff_iface,
-                    mon_tx.clone(),
-                    known_aps,
-                    cancel.clone(),
-                )
-                .await
-                {
-                    mon_tx
-                        .send(AppEvent::WifiStatus(Some(format!("Sniffer error: {}", e))))
-                        .await
-                        .ok();
-                }
-
-                cancel.cancel();
-                drop(mon_handle);
-            }
-        }
-    });
+    tokio::spawn(scanner::wifi::run_client_capture(config.clone(), tx.clone()));
 
     // Spawn Sub-GHz scanner (Yard Stick One)
     let subghz_tx = tx.clone();

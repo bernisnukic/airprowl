@@ -33,6 +33,9 @@ pub struct App {
     tui: TuiState,
     event_rx: mpsc::Receiver<AppEvent>,
     event_tx: mpsc::Sender<AppEvent>,
+    /// networksetup joins networks per interface; nmcli picks one itself.
+    #[cfg(target_os = "macos")]
+    wifi_iface: String,
 }
 
 /// Helper: get the ID string for an entry in either list type
@@ -75,6 +78,8 @@ impl App {
             tui: TuiState::new(),
             event_rx,
             event_tx,
+            #[cfg(target_os = "macos")]
+            wifi_iface: config.wifi_iface.clone(),
         }
     }
 
@@ -369,6 +374,11 @@ impl App {
 
         let bssid = device.mac.clone();
         let ssid = device.ssid.clone().unwrap_or_else(|| bssid.clone());
+        // macOS joins by name, and placeholders like "(hidden)" are not names.
+        if cfg!(target_os = "macos") && ssid.starts_with('(') {
+            self.tui.wifi_status = Some("Can't join: macOS doesn't reveal this network's name".into());
+            return;
+        }
         let security = device.security.clone().unwrap_or_default();
         let is_open = security.is_empty() || security == "--" || security.eq_ignore_ascii_case("open");
 
@@ -385,19 +395,39 @@ impl App {
 
     fn spawn_wifi_connect(&self, bssid: String, ssid: String, password: Option<String>) {
         let tx = self.event_tx.clone();
+        #[cfg(target_os = "macos")]
+        let iface = self.wifi_iface.clone();
         tokio::spawn(async move {
             tx.send(AppEvent::WifiStatus(Some(format!("Connecting to {}…", ssid))))
                 .await
                 .ok();
 
-            let mut cmd = tokio::process::Command::new("nmcli");
-            cmd.args(["dev", "wifi", "connect", &bssid]);
-            if let Some(ref pw) = password {
-                cmd.arg("password").arg(pw);
-            }
+            #[cfg(target_os = "linux")]
+            let mut cmd = {
+                let mut cmd = tokio::process::Command::new("nmcli");
+                cmd.args(["dev", "wifi", "connect", &bssid]);
+                if let Some(ref pw) = password {
+                    cmd.arg("password").arg(pw);
+                }
+                cmd
+            };
+            // macOS has no BSSIDs to target, so join by name.
+            #[cfg(target_os = "macos")]
+            let mut cmd = {
+                let _ = &bssid;
+                let mut cmd = tokio::process::Command::new("networksetup");
+                cmd.args(["-setairportnetwork", &iface, &ssid]);
+                if let Some(ref pw) = password {
+                    cmd.arg(pw);
+                }
+                cmd
+            };
 
             let msg = match cmd.output().await {
-                Ok(out) if out.status.success() => format!("Connected to {}", ssid),
+                // networksetup reports failures on stdout with exit status 0.
+                Ok(out) if out.status.success() && (cfg!(target_os = "linux") || out.stdout.trim_ascii().is_empty()) => {
+                    format!("Connected to {}", ssid)
+                }
                 Ok(out) => {
                     let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
                     let err = if err.is_empty() {
